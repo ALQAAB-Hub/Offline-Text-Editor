@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Rich Text Editor</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="A powerful offline-first rich text editor with auto-save to localStorage. Works completely offline and can be installed on your device.">
+    <meta name="theme-color" content="#1a2980">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Text Editor">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%231a2980' width='192' height='192'/><text x='50%' y='50%' font-size='120' font-weight='bold' text-anchor='middle' dominant-baseline='central' fill='%2326d0ce' font-family='Arial'>A</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%231a2980' width='180' height='180' rx='40'/><text x='90' y='90' font-size='100' font-weight='bold' text-anchor='middle' dominant-baseline='central' fill='%2326d0ce' font-family='Arial'>A</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a2980 0%, #26d0ce 100%);
+        }
+
+        .container {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            flex-shrink: 0;
+            min-height: 50px;
+            z-index: 10;
+        }
+
+        .header-left, .header-center, .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-center {
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            background: linear-gradient(to right, #2c3e50, #4a6491);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background: linear-gradient(to right, #3498db, #2980b9);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button i {
+            font-size: 16px;
+            font-style: normal;
+        }
+
+        .format-btn {
+            background: linear-gradient(to right, #34495e, #2c3e50);
+            padding: 6px 10px;
+        }
+
+        .format-btn.active {
+            background: linear-gradient(to right, #3498db, #2980b9);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .danger-btn {
+            background: linear-gradient(to right, #e74c3c, #c0392b);
+        }
+
+        .save-indicator {
+            font-size: 12px;
+            color: #27ae60;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .save-indicator.show {
+            opacity: 1;
+        }
+
+        .stats {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 4px 10px;
+            border-radius: 4px;
+            border-left: 3px solid #3498db;
+        }
+
+        .editor-container {
+            flex-grow: 1;
+            padding: 10px;
+            background: #f8f9fa;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #richTextEditor {
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            font-size: 16px;
+            line-height: 1.6;
+            border: none;
+            border-radius: 8px;
+            background: white;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.05);
+            outline: none;
+            overflow-y: auto;
+            resize: none;
+        }
+
+        #richTextEditor:focus {
+            box-shadow: inset 0 2px 10px rgba(52, 152, 219, 0.2);
+        }
+
+        #richTextEditor p {
+            margin-bottom: 1em;
+        }
+
+        #richTextEditor:empty:before {
+            content: attr(placeholder);
+            color: #95a5a6;
+            pointer-events: none;
+            display: block;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .modal h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            color: #7f8c8d;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            min-width: 80px;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-wrap: wrap;
+                padding: 8px 10px;
+                min-height: 60px;
+            }
+            
+            .header-left, .header-right {
+                width: 48%;
+            }
+            
+            .header-center {
+                order: 3;
+                width: 100%;
+                margin-top: 8px;
+                justify-content: space-between;
+            }
+            
+            button span {
+                display: none;
+            }
+            
+            button i {
+                margin-right: 0;
+            }
+            
+            .stats {
+                font-size: 11px;
+                gap: 8px;
+            }
+        }
+
+        /* Scrollbar styling */
+        #richTextEditor::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        #richTextEditor::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        #richTextEditor::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #3498db, #2980b9);
+            border-radius: 4px;
+        }
+
+        #richTextEditor::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(to bottom, #2980b9, #1c598a);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <button class="format-btn" id="boldBtn" title="Bold (Ctrl+B)">
+                    <i>B</i>
+                    <span>Bold</span>
+                </button>
+                <button class="format-btn" id="italicBtn" title="Italic (Ctrl+I)">
+                    <i>I</i>
+                    <span>Italic</span>
+                </button>
+                <button id="cleanupBtn" title="Cleanup Bullets">
+                    <i>•</i>
+                    <span>Cleanup</span>
+                </button>
+            </div>
+            
+            <div class="header-center">
+                <div class="stats">
+                    <div class="stat-box">
+                        <span id="wordCount">0</span> words
+                    </div>
+                    <div class="stat-box">
+                        <span id="charCount">0</span> chars
+                    </div>
+                    <div class="stat-box">
+                        Last saved: <span id="lastSaved">Never</span>
+                    </div>
+                </div>
+                
+                <div class="save-indicator" id="saveIndicator">
+                    <i>✓</i> Saved
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <button id="saveBtn" title="Save (Ctrl+S)">
+                    <i>💾</i>
+                    <span>Save</span>
+                </button>
+                <button id="exportBtn" title="Export (Ctrl+E)">
+                    <i>📥</i>
+                    <span>Export</span>
+                </button>
+                <button id="importBtn" title="Import">
+                    <i>📂</i>
+                    <span>Import</span>
+                </button>
+                <button id="printBtn" title="Print (Ctrl+P)">
+                    <i>🖨️</i>
+                    <span>Print</span>
+                </button>
+                <button class="danger-btn" id="clearBtn" title="Clear All">
+                    <i>🗑️</i>
+                    <span>Clear</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="editor-container">
+            <div id="richTextEditor" contenteditable="true" placeholder="Start typing here... Your text is automatically saved every 60 seconds, on every change, and when you close the tab."></div>
+        </div>
+    </div>
+    
+    <!-- File input for import -->
+    <input type="file" id="fileInput" class="file-input" accept=".txt">
+    
+    <!-- Clear confirmation modal -->
+    <div class="modal-overlay" id="clearModal">
+        <div class="modal">
+            <h3>Clear All Text</h3>
+            <p>Are you sure you want to clear all text? This action cannot be undone.</p>
+            <div class="modal-buttons">
+                <button class="danger-btn modal-btn" id="confirmClear">Clear All</button>
+                <button class="modal-btn" id="cancelClear">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM elements
+        const richTextEditor = document.getElementById('richTextEditor');
+        const wordCountElement = document.getElementById('wordCount');
+        const charCountElement = document.getElementById('charCount');
+        const lastSavedElement = document.getElementById('lastSaved');
+        const saveIndicator = document.getElementById('saveIndicator');
+        const clearModal = document.getElementById('clearModal');
+        const boldBtn = document.getElementById('boldBtn');
+        const italicBtn = document.getElementById('italicBtn');
+        
+        // Buttons
+        const saveBtn = document.getElementById('saveBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const importBtn = document.getElementById('importBtn');
+        const printBtn = document.getElementById('printBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const cleanupBtn = document.getElementById('cleanupBtn');
+        const fileInput = document.getElementById('fileInput');
+        const confirmClear = document.getElementById('confirmClear');
+        const cancelClear = document.getElementById('cancelClear');
+        
+        // Auto-save timer
+        let autoSaveTimer;
+        const AUTO_SAVE_INTERVAL = 60000; // 60 seconds
+        
+        // Initialize the editor
+        function init() {
+            // Load saved content from localStorage
+            const savedContent = localStorage.getItem('offlineEditorContent');
+            if (savedContent) {
+                richTextEditor.innerHTML = savedContent;
+            }
+            
+            // Load last saved timestamp
+            const lastSaved = localStorage.getItem('offlineEditorLastSaved');
+            if (lastSaved) {
+                lastSavedElement.textContent = formatTime(lastSaved);
+            }
+            
+            // Update word and character count
+            updateStats();
+            
+            // Start auto-save timer
+            startAutoSaveTimer();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Focus on the editor
+            richTextEditor.focus();
+        }
+        
+        // Set up all event listeners
+        function setupEventListeners() {
+            // Text change events
+            richTextEditor.addEventListener('input', handleTextChange);
+            richTextEditor.addEventListener('keyup', handleTextChange);
+            richTextEditor.addEventListener('paste', handlePaste);
+            
+            // Button events
+            saveBtn.addEventListener('click', saveContent);
+            exportBtn.addEventListener('click', exportContent);
+            importBtn.addEventListener('click', () => fileInput.click());
+            printBtn.addEventListener('click', printContent);
+            clearBtn.addEventListener('click', showClearModal);
+            boldBtn.addEventListener('click', toggleBold);
+            italicBtn.addEventListener('click', toggleItalic);
+            cleanupBtn.addEventListener('click', cleanupBullets);
+            
+            // File input event
+            fileInput.addEventListener('change', importFile);
+            
+            // Modal events
+            confirmClear.addEventListener('click', clearContent);
+            cancelClear.addEventListener('click', hideClearModal);
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', handleKeyboardShortcuts);
+            
+            // Auto-save on beforeunload (when closing tab/window)
+            window.addEventListener('beforeunload', () => {
+                saveContent(false); // Silent save
+            });
+            
+            // Auto-save on visibility change (when switching tabs)
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    saveContent(false); // Silent save when tab becomes hidden
+                }
+            });
+        }
+        
+        // Handle text changes
+        function handleTextChange() {
+            updateStats();
+            saveContent(false); // Auto-save on text change (silent)
+        }
+        
+        // Handle paste event to clean up formatting
+        function handlePaste(e) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            
+            // Clean up bullet points if they exist
+            const cleanedText = text.replace(/^[•\-*]\s*$/gm, '');
+            
+            // Insert the cleaned text
+            document.execCommand('insertText', false, cleanedText);
+            
+            // Save after paste
+            setTimeout(() => {
+                updateStats();
+                saveContent(false);
+            }, 100);
+        }
+        
+        // Update word and character count
+        function updateStats() {
+            const text = getPlainText();
+            const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+            const chars = text.length;
+            
+            wordCountElement.textContent = words;
+            charCountElement.textContent = chars;
+        }
+        
+        // Get plain text from rich text editor
+        function getPlainText() {
+            return richTextEditor.innerText || richTextEditor.textContent;
+        }
+        
+        // Get HTML content for saving
+        function getHTMLContent() {
+            return richTextEditor.innerHTML;
+        }
+        
+        // Save content to localStorage
+        function saveContent(showFeedback = true) {
+            const content = getHTMLContent();
+            const timestamp = new Date().toISOString();
+            
+            localStorage.setItem('offlineEditorContent', content);
+            localStorage.setItem('offlineEditorLastSaved', timestamp);
+            
+            lastSavedElement.textContent = formatTime(timestamp);
+            
+            if (showFeedback) {
+                showSaveIndicator();
+            }
+        }
+        
+        // Show save indicator briefly
+        function showSaveIndicator() {
+            saveIndicator.classList.add('show');
+            setTimeout(() => {
+                saveIndicator.classList.remove('show');
+            }, 1500);
+        }
+        
+        // Export content as .txt file
+        function exportContent() {
+            const content = getPlainText();
+            const filename = `text-editor-export-${new Date().toISOString().slice(0, 10)}.txt`;
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showSaveIndicator();
+        }
+        
+        // Import .txt file
+        function importFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Convert plain text to HTML with paragraphs
+                const plainText = e.target.result;
+                const htmlText = plainText.replace(/\n/g, '<br>');
+                richTextEditor.innerHTML = htmlText;
+                
+                updateStats();
+                saveContent(true);
+                
+                // Reset file input
+                fileInput.value = '';
+            };
+            reader.readAsText(file);
+        }
+        
+        // Print content
+        function printContent() {
+            const content = getHTMLContent();
+            const printWindow = window.open('', '_blank');
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Printed Document</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+                        .content { white-space: pre-wrap; word-wrap: break-word; }
+                    </style>
+                </head>
+                <body>
+                    <div class="content">${content}</div>
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }
+        
+        // Show clear confirmation modal
+        function showClearModal() {
+            clearModal.classList.add('active');
+        }
+        
+        // Hide clear confirmation modal
+        function hideClearModal() {
+            clearModal.classList.remove('active');
+        }
+        
+        // Clear all content
+        function clearContent() {
+            richTextEditor.innerHTML = '';
+            updateStats();
+            saveContent(true);
+            hideClearModal();
+            richTextEditor.focus();
+        }
+        
+        // Toggle bold formatting
+        function toggleBold() {
+            document.execCommand('bold', false, null);
+            updateFormatButtonStates();
+            saveContent(false);
+            richTextEditor.focus();
+        }
+        
+        // Toggle italic formatting
+        function toggleItalic() {
+            document.execCommand('italic', false, null);
+            updateFormatButtonStates();
+            saveContent(false);
+            richTextEditor.focus();
+        }
+        
+        // Update format button states based on current selection
+        function updateFormatButtonStates() {
+            const isBold = document.queryCommandState('bold');
+            const isItalic = document.queryCommandState('italic');
+            
+            boldBtn.classList.toggle('active', isBold);
+            italicBtn.classList.toggle('active', isItalic);
+        }
+        
+        // Cleanup bullet points (remove empty bullet lines)
+        function cleanupBullets() {
+            let html = richTextEditor.innerHTML;
+            
+            // Remove lines that are just bullet points with no text
+            html = html.replace(/<[^>]*>[•\-*]\s*<\/[^>]*>/g, '');
+            html = html.replace(/<[^>]*>[•\-*]\s*<br[^>]*><\/[^>]*>/g, '');
+            
+            // Also clean up plain text bullets in div/p elements
+            html = html.replace(/(<div[^>]*>|<p[^>]*>)[•\-*]\s*(<\/div>|<\/p>)/g, '');
+            
+            richTextEditor.innerHTML = html;
+            updateStats();
+            saveContent(true);
+            richTextEditor.focus();
+        }
+        
+        // Handle keyboard shortcuts
+        function handleKeyboardShortcuts(e) {
+            // Check for Ctrl key (Cmd key on Mac)
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key.toLowerCase()) {
+                    case 's':
+                        e.preventDefault();
+                        saveContent(true);
+                        break;
+                    case 'e':
+                        e.preventDefault();
+                        exportContent();
+                        break;
+                    case 'p':
+                        e.preventDefault();
+                        printContent();
+                        break;
+                    case 'b':
+                        e.preventDefault();
+                        toggleBold();
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        toggleItalic();
+                        break;
+                }
+            }
+        }
+        
+        // Start auto-save timer
+        function startAutoSaveTimer() {
+            if (autoSaveTimer) {
+                clearInterval(autoSaveTimer);
+            }
+            
+            autoSaveTimer = setInterval(() => {
+                saveContent(false); // Silent auto-save every 60 seconds
+            }, AUTO_SAVE_INTERVAL);
+        }
+        
+        // Format timestamp for display
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Initialize the editor when page loads
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Update format button states on selection change
+        document.addEventListener('selectionchange', () => {
+            if (document.activeElement === richTextEditor) {
+                updateFormatButtonStates();
+            }
+        });
+    </script>
+
+    <!-- Service Worker Registration for PWA -->
+    <script>
+        // Register Service Worker for offline functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((registration) => {
+                        console.log('Service Worker registered successfully:', registration);
+                        
+                        // Check for updates periodically
+                        setInterval(() => {
+                            registration.update();
+                        }, 60000); // Check every minute
+                    })
+                    .catch((error) => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+
+            // Handle service worker updates
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                console.log('New Service Worker has taken control');
+            });
+        }
+
+        // Detect if app is installed
+        window.addEventListener('beforeinstallprompt', (event) => {
+            console.log('beforeinstallprompt event triggered');
+            // The app can be installed - the browser will show the install prompt automatically
+        });
+
+        window.addEventListener('appinstalled', () => {
+            console.log('App installed successfully');
+        });
+
+        // Handle online/offline status
+        window.addEventListener('online', () => {
+            console.log('App is online');
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('App is offline - all content is cached');
+        });
+    </script>
+</body>
+</html>

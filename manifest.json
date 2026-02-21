@@ -1,0 +1,51 @@
+{
+  "name": "Offline Rich Text Editor - Daftar",
+  "short_name": "Text Editor",
+  "description": "A powerful offline-first rich text editor with auto-save to localStorage",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1a2980",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%231a2980' width='192' height='192'/><text x='50%' y='50%' font-size='120' font-weight='bold' text-anchor='middle' dominant-baseline='central' fill='%2326d0ce' font-family='Arial'>A</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%231a2980' width='512' height='512'/><text x='50%' y='50%' font-size='320' font-weight='bold' text-anchor='middle' dominant-baseline='central' fill='%2326d0ce' font-family='Arial'>A</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%231a2980' width='540' height='720'/><rect fill='%2326d0ce' y='60' width='540' height='600'/><text x='270' y='400' font-size='60' text-anchor='middle' fill='%231a2980' font-family='Arial'>Offline Text Editor</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["productivity"],
+  "shortcuts": [
+    {
+      "name": "Open Editor",
+      "short_name": "Open",
+      "description": "Open the text editor",
+      "url": "/index.html",
+      "icons": []
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720'><rect fill='%231a2980' width='1280' height='720'/><rect fill='%2326d0ce' y='60' width='1280' height='600'/><text x='640' y='380' font-size='100' text-anchor='middle' fill='%231a2980' font-family='Arial'>Text Editor</text></svg>",
+      "sizes": "1280x720",
+      "type": "image/svg+xml",
+      "form_factor": "wide"
+    }
+  ]
+}
